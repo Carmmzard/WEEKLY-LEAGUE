@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FAMILY LEAGUE</title>
+    <link rel="stylesheet" href="src/league.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Krona+One&family=Readex+Pro:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Allerta&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="App">
+        <h1 class="main-title">WEEKLY LEAGUE</h1>
+
+        <div class="tournament-table">
+            <div class="table-header default-header">
+                <div class="headeramount1 default-header-place">Место</div>
+                <div class="headeramount1 default-header-team">Название</div>
+                <div class="headeramount2 default-header-amount">Общее</div>
+            </div>
+            
+            <div id="teamList">
+                <!-- Teams will be inserted here -->
+            </div>
+        </div>
+
+        <div class="logo-container">
+            <img src="src/logo.svg" alt="Majestic Logo" class="logo" crossorigin="anonymous">
+        </div>
+
+        <div class="screenshot-button-container">
+            <button onclick="takeScreenshot()">Сделать скриншот</button>
+        </div>
+
+        <form id="addForm" class="add-form">
+            <input type="text" id="teamName" placeholder="Название" required>
+            <input type="number" id="teamAmount" placeholder="Сумма" required>
+            <button type="submit">Добавить</button>
+            <button type="button" onclick="showBulkAdd()">Массовое добавление</button>
+            <button type="button" onclick="clearAllTeams()">Массовое удаление</button>
+        </form>
+
+        <div id="bulkAddContainer" class="bulk-add" style="display: none;">
+            <textarea id="bulkNames" placeholder="Названия (каждое с новой строки)"></textarea>
+            <textarea id="bulkAmounts" placeholder="Суммы (каждая с новой строки)"></textarea>
+            <div class="bulk-add-buttons">
+                <button onclick="handleBulkAdd()">Добавить команды</button>
+                <button onclick="hideBulkAdd()">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        let teams = [];
+
+        // Load teams from localStorage
+        function loadTeams() {
+            const savedTeams = localStorage.getItem('leagueTeams');
+            if (savedTeams) {
+                teams = JSON.parse(savedTeams);
+                updateTeamList();
+            }
+        }
+
+        // Save teams to localStorage
+        function saveTeams() {
+            localStorage.setItem('leagueTeams', JSON.stringify(teams));
+        }
+
+        function updateTeamList() {
+            const teamList = document.getElementById('teamList');
+            teamList.innerHTML = '';
+            
+            // Sort teams by amount in descending order
+            teams.sort((a, b) => b.amount - a.amount);
+            
+            teams.forEach((team, index) => {
+                const teamRow = document.createElement('div');
+                teamRow.className = 'family-row';
+                
+                if (index < 3) {
+                    teamRow.classList.add(`top-${index + 1}`);
+                }
+
+                let placeContent = `<div class="place-column">${index + 1}</div>`;
+                
+                if (index === 0) {
+                    placeContent = `<div class="place-column"><img src="src/Top1.svg" alt="1 место" class="place-icon"></div>`;
+                } else if (index === 1) {
+                    placeContent = `<div class="place-column"><img src="src/Top2.svg" alt="2 место" class="place-icon"></div>`;
+                } else if (index === 2) {
+                    placeContent = `<div class="place-column"><img src="src/Top3.svg" alt="3 место" class="place-icon"></div>`;
+                }
+
+                teamRow.innerHTML = `
+                    ${placeContent}
+                    <div class="family-name">
+                        ${team.logo ? `<img src="${team.logo}" alt="${team.name} logo" class="team-logo">` : ''}
+                        <span class="team-name-text">${team.name}</span>
+                        <input type="file" id="logo-upload-${index}" class="logo-upload-input" accept="image/*" onchange="uploadLogo(${index}, this)">
+                        <label for="logo-upload-${index}" class="logo-upload-label">+</label>
+                    </div>
+                    <div class="amount">${team.amount.toLocaleString()}</div>
+                `;
+                teamList.appendChild(teamRow);
+            });
+
+            saveTeams();
+        }
+
+        function updateNewAmount(index, value) {
+            teams[index].newAmount = value;
+            saveTeams();
+        }
+
+        function uploadLogo(index, input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    teams[index].logo = e.target.result;
+                    updateTeamList();
+                    saveTeams();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        document.getElementById('addForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const name = document.getElementById('teamName').value;
+            const amount = parseInt(document.getElementById('teamAmount').value);
+            
+            if (name && amount) {
+                teams.push({ 
+                    name, 
+                    amount,
+                });
+                updateTeamList();
+                saveTeams();
+                
+                // Clear inputs
+                document.getElementById('teamName').value = '';
+                document.getElementById('teamAmount').value = '';
+            }
+        });
+
+        function showBulkAdd() {
+            document.getElementById('bulkAddContainer').style.display = 'flex';
+            document.getElementById('addForm').style.display = 'none';
+        }
+
+        function hideBulkAdd() {
+            document.getElementById('bulkAddContainer').style.display = 'none';
+            document.getElementById('addForm').style.display = 'flex';
+        }
+
+        function handleBulkAdd() {
+            const names = document.getElementById('bulkNames').value.split('\n').filter(n => n.trim());
+            const amounts = document.getElementById('bulkAmounts').value.split('\n').filter(a => a.trim());
+            
+            names.forEach((name, index) => {
+                if (name && amounts[index]) {
+                    teams.push({
+                        name: name.trim(),
+                        amount: parseInt(amounts[index]) || 0,
+                    });
+                }
+            });
+            
+            updateTeamList();
+            saveTeams();
+            hideBulkAdd();
+            
+            // Clear bulk inputs
+            document.getElementById('bulkNames').value = '';
+            document.getElementById('bulkAmounts').value = '';
+        }
+
+        function clearAllTeams() {
+            if (confirm('Вы уверены, что хотите удалить все команды?')) {
+                teams = [];
+                updateTeamList();
+                saveTeams();
+            }
+        }
+
+        async function takeScreenshot() {
+            const element = document.querySelector('.App');
+            try {
+                // Wait for logo to load
+                await new Promise((resolve) => {
+                    const img = element.querySelector('.logo');
+                    if (img.complete) {
+                        resolve();
+                    } else {
+                        img.onload = resolve;
+                    }
+                });
+
+                const canvas = await html2canvas(element, {
+                    backgroundColor: '#121212',
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    ignoreElements: (element) => {
+                        return element.className === 'add-form' ||
+                               element.className === 'bulk-add' ||
+                               element.className === 'screenshot-button-container' ||
+                               element.className === 'logo-upload-label';
+                    }
+                });
+
+                canvas.toBlob(async (blob) => {
+                    try {
+                        await navigator.clipboard.write([
+                            new ClipboardItem({
+                                'image/png': blob
+                            })
+                        ]);
+                        alert('Скриншот сделан, можно добавлять!');
+                    } catch (err) {
+                        console.error('Ошибка при копировании в буфер обмена:', err);
+                        alert('Не удалось скопировать скриншот в буфер обмена');
+                    }
+                }, 'image/png');
+            } catch (err) {
+                console.error('Ошибка при создании скриншота:', err);
+                alert('Не удалось создать скриншот');
+            }
+        }
+
+        // Load teams when page loads
+        document.addEventListener('DOMContentLoaded', loadTeams);
+    </script>
+</body>
+</html> 
