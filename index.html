@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Krona+One&family=Readex+Pro:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Allerta&display=swap" rel="stylesheet">
+
 </head>
 <body>
     <div class="App">
@@ -24,12 +25,36 @@
             </div>
         </div>
 
+
+
         <div class="logo-container">
             <img src="src/logo.svg" alt="Majestic Logo" class="logo" crossorigin="anonymous">
         </div>
 
+        <div class="pagination-controls">
+            <button class="nav-button" id="prevBtn" onclick="previousPage()">
+                <svg viewBox="0 0 24 24">
+                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                </svg>
+            </button>
+            
+            <div class="page-info">
+                Страница <span id="currentPage">1</span> из <span id="totalPages">1</span>
+            </div>
+            
+            <button class="nav-button" id="nextBtn" onclick="nextPage()">
+                <svg viewBox="0 0 24 24">
+                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                </svg>
+            </button>
+        </div>
+        
+        <div class="page-indicator" id="pageDots">
+            <!-- Page dots will be generated here -->
+        </div>
+
         <div class="screenshot-button-container">
-            <button onclick="takeScreenshot()">Сделать скриншот</button>
+            <button onclick="takeScreenshot()">Сделать скриншот текущей страницы</button>
         </div>
 
         <form id="addForm" class="add-form">
@@ -53,6 +78,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script>
         let teams = [];
+        let currentPage = 1;
+        const teamsPerPage = 14;
 
         // Load teams from localStorage
         function loadTeams() {
@@ -60,6 +87,8 @@
             if (savedTeams) {
                 teams = JSON.parse(savedTeams);
                 updateTeamList();
+            } else {
+                updatePagination();
             }
         }
 
@@ -75,21 +104,29 @@
             // Sort teams by amount in descending order
             teams.sort((a, b) => b.amount - a.amount);
             
-            teams.forEach((team, index) => {
+            // Calculate start and end indices for current page
+            const startIndex = (currentPage - 1) * teamsPerPage;
+            const endIndex = Math.min(startIndex + teamsPerPage, teams.length);
+            
+            // Get teams for current page
+            const currentPageTeams = teams.slice(startIndex, endIndex);
+            
+            currentPageTeams.forEach((team, localIndex) => {
+                const globalIndex = startIndex + localIndex;
                 const teamRow = document.createElement('div');
                 teamRow.className = 'family-row';
                 
-                if (index < 3) {
-                    teamRow.classList.add(`top-${index + 1}`);
+                if (globalIndex < 3) {
+                    teamRow.classList.add(`top-${globalIndex + 1}`);
                 }
 
-                let placeContent = `<div class="place-column">${index + 1}</div>`;
+                let placeContent = `<div class="place-column">${globalIndex + 1}</div>`;
                 
-                if (index === 0) {
+                if (globalIndex === 0) {
                     placeContent = `<div class="place-column"><img src="src/Top1.svg" alt="1 место" class="place-icon"></div>`;
-                } else if (index === 1) {
+                } else if (globalIndex === 1) {
                     placeContent = `<div class="place-column"><img src="src/Top2.svg" alt="2 место" class="place-icon"></div>`;
-                } else if (index === 2) {
+                } else if (globalIndex === 2) {
                     placeContent = `<div class="place-column"><img src="src/Top3.svg" alt="3 место" class="place-icon"></div>`;
                 }
 
@@ -98,15 +135,66 @@
                     <div class="family-name">
                         ${team.logo ? `<img src="${team.logo}" alt="${team.name} logo" class="team-logo">` : ''}
                         <span class="team-name-text">${team.name}</span>
-                        <input type="file" id="logo-upload-${index}" class="logo-upload-input" accept="image/*" onchange="uploadLogo(${index}, this)">
-                        <label for="logo-upload-${index}" class="logo-upload-label">+</label>
+                        <input type="file" id="logo-upload-${globalIndex}" class="logo-upload-input" accept="image/*" onchange="uploadLogo(${globalIndex}, this)">
+                        <label for="logo-upload-${globalIndex}" class="logo-upload-label">+</label>
                     </div>
                     <div class="amount">${team.amount.toLocaleString()}</div>
                 `;
                 teamList.appendChild(teamRow);
             });
 
+            updatePagination();
             saveTeams();
+        }
+
+        function updatePagination() {
+            const totalPages = Math.ceil(teams.length / teamsPerPage);
+            const currentPageSpan = document.getElementById('currentPage');
+            const totalPagesSpan = document.getElementById('totalPages');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            
+            currentPageSpan.textContent = currentPage;
+            totalPagesSpan.textContent = totalPages;
+            
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === totalPages;
+            
+            updatePageDots(totalPages);
+        }
+
+        function updatePageDots(totalPages) {
+            const pageDotsContainer = document.getElementById('pageDots');
+            pageDotsContainer.innerHTML = '';
+            
+            for (let i = 1; i <= totalPages; i++) {
+                const dot = document.createElement('div');
+                dot.className = `page-dot ${i === currentPage ? 'active' : ''}`;
+                dot.onclick = () => goToPage(i);
+                pageDotsContainer.appendChild(dot);
+            }
+        }
+
+        function goToPage(page) {
+            if (page >= 1 && page <= Math.ceil(teams.length / teamsPerPage)) {
+                currentPage = page;
+                updateTeamList();
+            }
+        }
+
+        function previousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                updateTeamList();
+            }
+        }
+
+        function nextPage() {
+            const totalPages = Math.ceil(teams.length / teamsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                updateTeamList();
+            }
         }
 
         function updateNewAmount(index, value) {
@@ -137,6 +225,13 @@
                     name, 
                     amount,
                 });
+                
+                // Go to last page if adding new team
+                const totalPages = Math.ceil(teams.length / teamsPerPage);
+                if (currentPage !== totalPages) {
+                    currentPage = totalPages;
+                }
+                
                 updateTeamList();
                 saveTeams();
                 
@@ -169,6 +264,10 @@
                 }
             });
             
+            // Go to last page after bulk add
+            const totalPages = Math.ceil(teams.length / teamsPerPage);
+            currentPage = totalPages;
+            
             updateTeamList();
             saveTeams();
             hideBulkAdd();
@@ -181,6 +280,7 @@
         function clearAllTeams() {
             if (confirm('Вы уверены, что хотите удалить все команды?')) {
                 teams = [];
+                currentPage = 1;
                 updateTeamList();
                 saveTeams();
             }
@@ -208,7 +308,9 @@
                         return element.className === 'add-form' ||
                                element.className === 'bulk-add' ||
                                element.className === 'screenshot-button-container' ||
-                               element.className === 'logo-upload-label';
+                               element.className === 'logo-upload-label' ||
+                               element.className === 'pagination-controls' ||
+                               element.className === 'page-indicator';
                     }
                 });
 
@@ -219,7 +321,7 @@
                                 'image/png': blob
                             })
                         ]);
-                        alert('Скриншот сделан, можно добавлять!');
+                        alert(`Скриншот страницы ${currentPage} сделан, можно добавлять!`);
                     } catch (err) {
                         console.error('Ошибка при копировании в буфер обмена:', err);
                         alert('Не удалось скопировать скриншот в буфер обмена');
